@@ -37,7 +37,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
 
   async function logout() {
     setLoggingOut(true);
-    try { await api<{ message: string }>("/auth/logout", { method: "POST" }); } catch (_error) { /* Clear local state even if the server session has expired. */ }
+    try { await api<{ message: string }>("/auth/logout", { method: "POST" }); } catch { /* Clear local state even if the server session has expired. */ }
     queryClient.clear();
     router.replace("/login");
   }

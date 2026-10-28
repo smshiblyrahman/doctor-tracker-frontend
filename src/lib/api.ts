@@ -26,7 +26,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       credentials: "include",
       cache: "no-store",
     });
-  } catch (_error) {
+  } catch {
     throw new ApiError("Could not reach the API. Check that the backend is running and the API URL is correct.", 0, "NETWORK_ERROR");
   }
 

@@ -1,0 +1,30 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { Activity, ArrowUpRight, CalendarDays, ClipboardList, Stethoscope, UsersRound } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { api } from "@/lib/api";
+import type { AnalyticsSummary } from "@/types";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { ErrorState, LoadingState } from "@/components/common/LoadState";
+
+function shortDate(date: string) {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+export default function DashboardPage() {
+  const summary = useQuery({ queryKey: ["analytics", "summary"], queryFn: () => api<{ data: AnalyticsSummary }>("/analytics/summary") });
+  const data = summary.data?.data;
+  return <div className="page-stack">
+    <div className="page-intro"><div><p className="eyebrow">OVERVIEW</p><h2>Good morning, Administrator <span className="wave">✦</span></h2><p>Here’s what’s happening across your doctor and patient directory.</p></div><div className="date-chip"><CalendarDays size={16} /> {new Date().toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</div></div>
+    {summary.isLoading && <LoadingState label="Loading dashboard analytics…" />}
+    {summary.isError && <ErrorState message={summary.error instanceof Error ? summary.error.message : "Unable to load dashboard data."} onRetry={() => summary.refetch()} />}
+    {data && <>
+      <section className="stats-grid"><StatCard label="Total doctors" value={data.totalDoctors} note="Doctors in your directory" icon={Stethoscope} tone="blue" /><StatCard label="Total patients" value={data.totalPatients} note="Patients currently tracked" icon={UsersRound} tone="mint" /><StatCard label="Patient registrations" value={data.registrationsByDay.reduce((sum, day) => sum + day.count, 0)} note="Added in the last 7 days" icon={ClipboardList} tone="violet" /></section>
+      <section className="charts-grid"><article className="panel chart-panel"><div className="panel-heading"><div><p className="eyebrow">PATIENT ACTIVITY</p><h3>Registration overview</h3><p>Daily patient registrations over the last seven days</p></div><span className="panel-icon"><Activity size={18} /></span></div><div className="chart-area"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.registrationsByDay} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}><defs><linearGradient id="registrationFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4387f5" stopOpacity={0.22} /><stop offset="95%" stopColor="#4387f5" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid stroke="#edf1f6" strokeDasharray="4 4" vertical={false} /><XAxis dataKey="date" tickFormatter={shortDate} tickLine={false} axisLine={false} tick={{ fill: "#8b95a7", fontSize: 11 }} dy={10} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#8b95a7", fontSize: 11 }} /><Tooltip labelFormatter={(label) => shortDate(String(label))} contentStyle={{ border: "1px solid #e7ebf2", borderRadius: 12, boxShadow: "0 10px 30px #14213d12" }} /><Area type="monotone" dataKey="count" name="Registrations" stroke="#4387f5" strokeWidth={2.5} fill="url(#registrationFill)" activeDot={{ r: 5, strokeWidth: 0 }} /></AreaChart></ResponsiveContainer></div><div className="chart-footnote"><span><i className="legend-dot blue-dot" /> Patient registrations</span><span>7-day window</span></div></article>
+      <article className="panel chart-panel"><div className="panel-heading"><div><p className="eyebrow">CARE TEAM</p><h3>Patients by doctor</h3><p>Top doctors by assigned patient count</p></div><span className="panel-icon panel-icon-green"><UsersRound size={18} /></span></div>{data.patientsPerDoctor.length ? <div className="chart-area"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.patientsPerDoctor.slice(0, 6)} layout="vertical" margin={{ top: 5, right: 18, left: 4, bottom: 0 }}><CartesianGrid stroke="#edf1f6" strokeDasharray="4 4" horizontal={false} /><XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#8b95a7", fontSize: 11 }} /><YAxis type="category" dataKey="doctorName" width={112} tickLine={false} axisLine={false} tick={{ fill: "#697588", fontSize: 10 }} /><Tooltip contentStyle={{ border: "1px solid #e7ebf2", borderRadius: 12 }} /><Bar dataKey="patientCount" name="Patients" fill="#2fb69b" radius={[0, 5, 5, 0]} barSize={18} /></BarChart></ResponsiveContainer></div> : <div className="chart-empty">Add doctors and patients to see the comparison.</div>}<div className="chart-footnote"><span><i className="legend-dot green-dot" /> Assigned patients</span><span>Top 6 shown</span></div></article></section>
+      <section className="panel summary-panel"><div className="panel-heading"><div><p className="eyebrow">DIRECTORY SNAPSHOT</p><h3>Care team at a glance</h3><p>Quick view of patient assignments by doctor.</p></div><Link className="text-link" href="/doctors">View doctors <ArrowUpRight size={15} /></Link></div>{data.patientsPerDoctor.length ? <div className="doctor-summary-list">{data.patientsPerDoctor.slice(0, 5).map((doctor, index) => <div className="doctor-summary-row" key={doctor.doctorId}><div className={`mini-avatar mini-avatar-${index % 4}`}>{doctor.doctorName.split(" ").filter(Boolean).slice(-1)[0]?.[0] || "D"}</div><div className="doctor-summary-name"><strong>{doctor.doctorName}</strong><span>{doctor.specialization || "General practice"}</span></div><div className="patient-count"><strong>{doctor.patientCount}</strong><span>patients</span></div><div className="patient-meter"><span style={{ width: `${Math.max(4, data.totalPatients ? (doctor.patientCount / data.totalPatients) * 100 : 4)}%` }} /></div></div>)}</div> : <p className="muted empty-inline">No doctors yet. Add your first doctor to begin.</p>}</section>
+    </>}
+  </div>;
+}
